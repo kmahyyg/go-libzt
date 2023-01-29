@@ -8,6 +8,8 @@ Currently support:
 
 - Linux/Darwin/Windows + ARM64/AMD64
 
+To build applications using this library for golang, please download zipped binaries from release and put into lib folder.
+
 # Developer API reference
 
 Check GoDoc using `pkg.go.dev/` as url prefix.
