@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/go-libzt.iml" filepath="$PROJECT_DIR$/.idea/go-libzt.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../go-zt-quickaccess/.idea/go-zt-quickaccess.iml" filepath="$PROJECT_DIR$/../go-zt-quickaccess/.idea/go-zt-quickaccess.iml" />
     </modules>
   </component>
 </project>
