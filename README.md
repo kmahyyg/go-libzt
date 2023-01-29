@@ -56,6 +56,14 @@ Platform specific note for Windows:
 - MinGW doesn't support ARM64 compiling on Windows host, you must use VS if you need to do so.
 - `cmake -G` Makefile generator should be changed in `build.ps1`, make sure you've replaced all "Visual Studio 16 2019" to "Visual Studio 17 2022" and install latest VC++ Compile Toolchain for both ARM64 and AMD64.
 
+## Build ZTOne
+
+Dependencies on Debian:
+- libssl-dev curl wget rustup ca-certificates nano
+- nlohmann-json3-dev build-essential pkg-config
+- `attic/world` has `mkworld` to build custom planet
+
+
 # LICENSE
 
 AGPL v3
