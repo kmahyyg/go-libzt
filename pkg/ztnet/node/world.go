@@ -8,6 +8,8 @@ package node
 import (
 	"encoding/binary"
 	"net"
+	"strconv"
+	"strings"
 	"syscall"
 )
 
@@ -74,7 +76,23 @@ func (a *ZtNodeInetAddr) Family() int {
 func IPString2ZTNodeInetAddr(ipport string) (*ZtNodeInetAddr, error) {
 	// endpoint address use specific format: <IPADDR>/<PORT>
 	// identity address use contents from identity.public
-
+	tIpPort := strings.Split(ipport, "/")
+	if len(tIpPort) != 2 {
+		return nil, ErrInvalidData
+	}
+	tPort, err := strconv.ParseUint(tIpPort[1], 10, 16)
+	if err != nil {
+		return nil, err
+	}
+	tIp := net.ParseIP(tIpPort[0])
+	if tIp == nil {
+		return nil, ErrInvalidData
+	}
+	res := &ZtNodeInetAddr{
+		IP:   &tIp,
+		Port: (uint16)(tPort),
+	}
+	return res, nil
 }
 
 func (ztniaddr *ZtNodeInetAddr) Serialize() ([]byte, error) {
@@ -102,13 +120,20 @@ func (ztniaddr *ZtNodeInetAddr) Serialize() ([]byte, error) {
 	}
 }
 
-type ZtWorldPlanetNodeIdentity struct {
-	ZtNormalNode
-	PublicKey [ZT_C25519_PUBLIC_KEY_LEN]byte
-}
+type ZtWorldPlanetNodeIdentity = ZtNormalNode
 
-func (ztpnid ZtWorldPlanetNodeIdentity) Serialize() ([]byte, error) {
-
+func (ztpnid ZtWorldPlanetNodeIdentity) Serialize(inclPrivKey bool) ([]byte, error) {
+	var buf = make([]byte, 0)
+	buf = append(buf, ztpnid.ZtNodeAddress[:]...)
+	buf = append(buf, 0)
+	buf = append(buf, ztpnid.PublicKey[:]...)
+	if ztpnid.HasPrivateKey() && inclPrivKey {
+		buf = append(buf, ZT_C25519_PRIVATE_KEY_LEN)
+		buf = append(buf, ztpnid.privateKey[:]...)
+	} else {
+		buf = append(buf, 0)
+	}
+	return buf, nil
 }
 
 type ZtWorldPlanetNode struct {
@@ -119,7 +144,7 @@ type ZtWorldPlanetNode struct {
 func (ztpn ZtWorldPlanetNode) Serialize() ([]byte, error) {
 	var buf = make([]byte, 0)
 	// node->identity.serialize(), then append
-	idData, err := ztpn.Identity.Serialize()
+	idData, err := ztpn.Identity.Serialize(false)
 	if err != nil {
 		return nil, err
 	}
