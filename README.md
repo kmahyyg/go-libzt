@@ -4,7 +4,7 @@ https://github.com/zerotier/libzt C/C++ wrapper using CGo.
 
 This library is built for my convenience. You are welcome to submit issue and pull requests, but there's no guarantee that I'll fix them.
 
-Currently support:
+Currently, support:
 
 - Linux/Darwin/Windows + ARM64/AMD64
 
@@ -13,6 +13,10 @@ To build applications using this library for golang, please download zipped bina
 # Developer API reference
 
 Check GoDoc using `pkg.go.dev/` as url prefix.
+
+To use this package: You should only import "github.com/kmahyyg/go-libzt/pkg/ztnet" as ztnet. All transport related stuffs are handled there.
+
+We recommend you static link your CGo Program using the following params: TODO
 
 # CO-RE
 
@@ -63,8 +67,8 @@ Dependencies on Debian:
 - nlohmann-json3-dev build-essential pkg-config
 - `attic/world` has `mkworld` to build custom planet
 
-
 # LICENSE
 
 AGPL v3
 
+Code belongs to ZeroTier Inc are licensed under Business Source License 1.1

@@ -2,14 +2,19 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/kmahyyg/go-libzt/pkg/common"
-	"github.com/zerotier/go-ztidentity"
+	"github.com/kmahyyg/go-libzt/pkg/ztnet/node"
 	"io"
 	"log"
 	"os"
 )
 
+type NodeIdentity struct {
+	NodePriv string `json:"nodePriv,omitempty"`
+	NodePub  string `json:"nodePub,omitempty"`
+}
+
 func main() {
+	// the same as identity.public and identity.secret
 	fd, err := os.OpenFile("runtime.json", os.O_RDWR|os.O_SYNC|os.O_CREATE, 0640)
 	if err != nil {
 		panic(err)
@@ -22,9 +27,9 @@ func main() {
 		panic(err)
 	}
 	log.Println("data read from runtime.json.")
-	var runtimeZTNodeId = &common.RuntimeNodeID{}
+	var runtimeZTNodeId = &NodeIdentity{}
 	if len(fdData) < 10 {
-		ztId := ztidentity.NewZeroTierIdentity()
+		ztId := node.NewZeroTierIdentity()
 		log.Println("new zt identity generated.")
 		runtimeZTNodeId.NodePriv = ztId.PrivateKeyString()
 		runtimeZTNodeId.NodePub = ztId.PublicKeyString()
