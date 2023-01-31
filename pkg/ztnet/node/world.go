@@ -6,6 +6,7 @@
 package node
 
 import (
+	"bytes"
 	"encoding/binary"
 	"net"
 	"strconv"
@@ -176,7 +177,8 @@ func (ztw ZtWorld) Serialize(forSign bool, c25519pub [ZT_C25519_PUBLIC_KEY_LEN]b
 	binary.BigEndian.AppendUint64(buf, ztw.ID)
 	binary.BigEndian.AppendUint64(buf, ztw.Timestamp)
 	buf = append(buf, c25519pub[:]...)
-	if !forSign {
+	// make sure sig is not 0
+	if !forSign && !bytes.Equal(c25519sig[:4], []byte{0, 0, 0, 0}) {
 		buf = append(buf, c25519sig[:]...)
 	}
 	buf = append(buf, (uint8)(len(ztw.Nodes)))

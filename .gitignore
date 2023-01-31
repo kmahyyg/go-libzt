@@ -222,3 +222,4 @@ bin/
 output/
 runtime.json
 action.json
+mkworld.json

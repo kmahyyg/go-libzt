@@ -58,9 +58,20 @@ func GenerateDualPair() (pub [64]byte, priv [64]byte) {
 	var k1pub, k1priv [32]byte
 	secrand.Read(k1priv[:])
 	curve25519.ScalarBaseMult(&k1pub, &k1priv)
+	// https://www.eiken.dev/blog/2020/11/code-spotlight-the-reference-implementation-of-ed25519-part-1/
+	// First 32 bytes of pub and priv are the keys for ECDH key
+	// agreement. This generates the public portion from the private.
 	copy(pub[0:32], k1pub[:])
 	copy(pub[32:64], k0pub[0:32])
+	// Second 32 bytes of pub and priv are the keys for ed25519
+	// signing and verification.
 	copy(priv[0:32], k1priv[:])
 	copy(priv[32:64], k0priv[0:32])
+	// same as node/C25519.cpp
 	return
+}
+
+func SignMessage(pub [64]byte, priv [64]byte, msg []byte) ([]byte, error) {
+	// Zerotier Official: we sign the first 32 bytes of SHA-512(msg)
+
 }
