@@ -20,10 +20,11 @@ var (
 )
 
 var (
-	prevkp    []byte
-	curkp     []byte
-	mConf     = &MkWorldConfig{}
-	gConfFile = flag.String("c", "mkworld.json", "program config")
+	prevkp     = make([]byte, node.ZT_C25519_PUBLIC_KEY_LEN+node.ZT_C25519_PRIVATE_KEY_LEN)
+	curkp      = make([]byte, node.ZT_C25519_PUBLIC_KEY_LEN+node.ZT_C25519_PRIVATE_KEY_LEN)
+	mConf      = &MkWorldConfig{}
+	gConfFile  = flag.String("c", "mkworld.json", "program config")
+	alreadyMod = false
 )
 
 func init() {
@@ -40,12 +41,35 @@ func main() {
 	// elliptic curve crypt operation are copied from NaCl
 	**/
 	// Now Start Preflight Check
+	// Check Config Number limit and legal or not
 	if err := Preflight(); err != nil {
+		switch err {
+		case ErrPreflightCheckFailed:
+			panic(err)
+		case errUseRecommendValue:
+			log.Println("!You've been warned! WARN! WARN! WARN!")
+			if mConf.PlanetRecommend {
+				log.Println("since you've set plRecommend to true, we will automatically choose a new value.")
+				log.Println("which might be much suitable for you.")
+				mConf.PlanetID = (uint64)(rand.Uint32())
+				mConf.PlanetBirth = (uint64)(time.Now().UnixMilli())
+				log.Printf("Generated Planet ID: %d, Birth TimeStamp: %d . \n", mConf.PlanetID, mConf.PlanetBirth)
+				alreadyMod = true
+			} else {
+				log.Println("planet ID and planet birth might not be suitable for unofficial world. unexpected things might happen.")
+			}
+		default:
+			log.Println("unknown error occured, preflight check failed.")
+			panic(err)
+		}
+		log.Println("!You've been warned! WARN! WARN! WARN!")
+	}
+	// check signing key
+	if err := PreFlightSigningKeyCheck(); err != nil {
 		// if signing key is illegal, generate new
 		switch err {
 		case ErrWorldSigningKeyIllegal:
 			log.Println("preflight check error occurred, but still can proceed.")
-			prevkp = make([]byte, node.ZT_C25519_PUBLIC_KEY_LEN+node.ZT_C25519_PRIVATE_KEY_LEN)
 			pub1, priv1 := ztcrypto.GenerateDualPair()
 			copy(prevkp[:node.ZT_C25519_PUBLIC_KEY_LEN], pub1[:])
 			copy(prevkp[node.ZT_C25519_PUBLIC_KEY_LEN:], priv1[:])
@@ -61,15 +85,6 @@ func main() {
 				panic(err)
 			}
 			log.Println("new world signing key generated.")
-		case errUseRecommendValue:
-			log.Println("!You've been warned! WARN! WARN! WARN!")
-			if mConf.PlanetRecommend {
-				log.Println("since you've set plRecommend to true, we will automatically choose a new value.")
-				log.Println("which might be much suitable for you.")
-				mConf.PlanetID = rand.Uint64()
-				mConf.PlanetBirth = (uint64)(time.Now().UnixMilli())
-			}
-			log.Println("!You've been warned! WARN! WARN! WARN!")
 		default:
 			log.Println("preflight check failed.")
 			// else panic
@@ -78,6 +93,7 @@ func main() {
 	}
 	log.Println("preflight check successfully complete.")
 	// Preflight check successfully completed
+	// Start to build a world
 	ztW := &node.ZtWorld{
 		Type:                            node.ZT_WORLD_TYPE_PLANET,
 		ID:                              mConf.PlanetID,
@@ -85,7 +101,7 @@ func main() {
 		PublicKeyMustBeSignedByNextTime: [64]byte{},
 		Nodes:                           nil,
 	}
-	var futurePubK [node.ZT_C25519_PUBLIC_KEY_LEN]byte
+	var futurePubK = [node.ZT_C25519_PUBLIC_KEY_LEN]byte{}
 	copy(futurePubK[:], curkp[:node.ZT_C25519_PUBLIC_KEY_LEN])
 
 	log.Println("generating pre-sign message.")
@@ -114,6 +130,19 @@ func main() {
 	}
 	log.Println("packed new signed world has been written to file.")
 	log.Println(" ")
+	if alreadyMod {
+		mDt, err := json.Marshal(mConf)
+		if err != nil {
+			log.Println("err when trying to save modified mkworld json, err: ", err)
+		} else {
+			err2 := os.WriteFile("mkworld.new.json", mDt, 0644)
+			if err2 != nil {
+				log.Println("write file to disk failed, err:", err2)
+			}
+			log.Println("write modified json successfully.")
+		}
+	}
+	log.Println(" ")
 	log.Println("now c language output: ")
 	fmt.Println(" ")
 	fmt.Println("#define ZT_DEFAULT_WORLD_LENGTH ", len(finalWorld))
@@ -124,7 +153,7 @@ func main() {
 		}
 		fmt.Printf("0x%02x", v)
 	}
-	fmt.Printf("};")
+	fmt.Printf("};\n")
 	fmt.Println(" ")
 }
 
@@ -144,7 +173,6 @@ type MkWorldNode struct {
 }
 
 func Preflight() error {
-	var nErr error
 	gcfdata, err := os.ReadFile(*gConfFile)
 	if err != nil {
 		return err
@@ -171,23 +199,30 @@ func Preflight() error {
 	}
 	if mConf.PlanetID == node.ZT_WORLD_ID_EARTH || mConf.PlanetID == node.ZT_WORLD_ID_MARS || mConf.PlanetBirth == 1567191349589 {
 		log.Println("!WARNING! You've specified a Planet ID / Birth that is currently in use.")
-		nErr = errUseRecommendValue
+		return errUseRecommendValue
 	}
 	if mConf.PlanetBirth <= 1567191349589 {
 		log.Println("!WARNING! You've been created a world older than official, timestamp should be larger than 1567191349589.")
-		nErr = errUseRecommendValue
+		return errUseRecommendValue
 	}
+	return nil
+}
+
+func PreFlightSigningKeyCheck() error {
 	var err1, err2 error
-	prevkp, err1 = os.ReadFile(mConf.SigningKeyFiles[0])
-	curkp, err2 = os.ReadFile(mConf.SigningKeyFiles[1])
+	tPrevkp, err1 := os.ReadFile(mConf.SigningKeyFiles[0])
+	tCurkp, err2 := os.ReadFile(mConf.SigningKeyFiles[1])
 	if err1 != nil || err2 != nil {
 		log.Println("read world signing key failed: ", err1, err2)
 		return ErrWorldSigningKeyIllegal
 	}
 	preqLen := node.ZT_C25519_PRIVATE_KEY_LEN + node.ZT_C25519_PUBLIC_KEY_LEN
 	if len(prevkp) != preqLen || len(curkp) != preqLen {
-		log.Println("world signing key does not satisfy required length.")
+		log.Println("existing world signing key does not satisfy required length.")
 		return ErrWorldSigningKeyIllegal
+	} else {
+		curkp = tCurkp
+		prevkp = tPrevkp
 	}
-	return nErr
+	return nil
 }
