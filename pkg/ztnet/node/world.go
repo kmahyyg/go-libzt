@@ -56,7 +56,7 @@ type ZtWorld struct {
 	ID                              ZtWorldID
 	Timestamp                       uint64
 	PublicKeyMustBeSignedByNextTime [ZT_C25519_PUBLIC_KEY_LEN]byte
-	Nodes                           []ZtWorldPlanetNode
+	Nodes                           []*ZtWorldPlanetNode
 }
 
 type ZtNodeInetAddr struct {
@@ -74,26 +74,24 @@ func (a *ZtNodeInetAddr) Family() int {
 	return syscall.AF_INET6
 }
 
-func IPString2ZTNodeInetAddr(ipport string) (*ZtNodeInetAddr, error) {
+func (a *ZtNodeInetAddr) FromString(ipport string) error {
 	// endpoint address use specific format: <IPADDR>/<PORT>
 	// identity address use contents from identity.public
 	tIpPort := strings.Split(ipport, "/")
 	if len(tIpPort) != 2 {
-		return nil, ErrInvalidData
+		return ErrInvalidData
 	}
 	tPort, err := strconv.ParseUint(tIpPort[1], 10, 16)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	tIp := net.ParseIP(tIpPort[0])
 	if tIp == nil {
-		return nil, ErrInvalidData
+		return ErrInvalidData
 	}
-	res := &ZtNodeInetAddr{
-		IP:   &tIp,
-		Port: (uint16)(tPort),
-	}
-	return res, nil
+	a.IP = &tIp
+	a.Port = (uint16)(tPort)
+	return nil
 }
 
 func (ztniaddr *ZtNodeInetAddr) Serialize() ([]byte, error) {
@@ -138,7 +136,7 @@ func (ztpnid ZtWorldPlanetNodeIdentity) Serialize(inclPrivKey bool) ([]byte, err
 }
 
 type ZtWorldPlanetNode struct {
-	Identity  ZtWorldPlanetNodeIdentity
+	Identity  *ZtWorldPlanetNodeIdentity
 	Endpoints []*ZtNodeInetAddr
 }
 
@@ -167,7 +165,7 @@ func (ztpn ZtWorldPlanetNode) Serialize() ([]byte, error) {
 	return buf, nil
 }
 
-func (ztw ZtWorld) Serialize(forSign bool, c25519pub [ZT_C25519_PUBLIC_KEY_LEN]byte, c25519sig [ZT_C25519_SIGNATURE_LEN]byte) ([]byte, error) {
+func (ztw ZtWorld) Serialize(forSign bool, c25519sig [ZT_C25519_SIGNATURE_LEN]byte) ([]byte, error) {
 	var buf = make([]byte, 0)
 	// by default, forSign = false
 	if forSign {
@@ -176,7 +174,7 @@ func (ztw ZtWorld) Serialize(forSign bool, c25519pub [ZT_C25519_PUBLIC_KEY_LEN]b
 	buf = append(buf, ztw.Type)
 	buf = binary.BigEndian.AppendUint64(buf, ztw.ID)
 	buf = binary.BigEndian.AppendUint64(buf, ztw.Timestamp)
-	buf = append(buf, c25519pub[:]...)
+	buf = append(buf, ztw.PublicKeyMustBeSignedByNextTime[:]...)
 	// make sure sig is not 0
 	if !forSign && !bytes.Equal(c25519sig[:4], []byte{0, 0, 0, 0}) {
 		buf = append(buf, c25519sig[:]...)

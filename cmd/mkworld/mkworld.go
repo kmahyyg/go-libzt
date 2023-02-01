@@ -95,17 +95,21 @@ func main() {
 	// Preflight check successfully completed
 	// Start to build a world
 	ztW := &node.ZtWorld{
-		Type:                            node.ZT_WORLD_TYPE_PLANET,
-		ID:                              mConf.PlanetID,
-		Timestamp:                       mConf.PlanetBirth,
-		PublicKeyMustBeSignedByNextTime: [64]byte{},
-		Nodes:                           nil,
+		Type:      node.ZT_WORLD_TYPE_PLANET,
+		ID:        mConf.PlanetID,
+		Timestamp: mConf.PlanetBirth,
+	}
+	// fill the node
+	var err2 error
+	ztW.Nodes, err2 = buildPlanetNodeFromConfig()
+	if err2 != nil {
+		panic(err2)
 	}
 	var futurePubK = [node.ZT_C25519_PUBLIC_KEY_LEN]byte{}
 	copy(futurePubK[:], curkp[:node.ZT_C25519_PUBLIC_KEY_LEN])
-
+	ztW.PublicKeyMustBeSignedByNextTime = futurePubK
 	log.Println("generating pre-sign message.")
-	toSignZtW, err := ztW.Serialize(true, futurePubK, [node.ZT_C25519_SIGNATURE_LEN]byte{})
+	toSignZtW, err := ztW.Serialize(true, [node.ZT_C25519_SIGNATURE_LEN]byte{})
 	if err != nil {
 		panic(err)
 	}
@@ -119,7 +123,7 @@ func main() {
 		panic(err)
 	}
 	log.Println("world has been signed.")
-	finalWorld, err := ztW.Serialize(false, futurePubK, sig4NewWorld)
+	finalWorld, err := ztW.Serialize(false, sig4NewWorld)
 	if err != nil {
 		panic(err)
 	}
@@ -225,4 +229,29 @@ func PreFlightSigningKeyCheck() error {
 		prevkp = tPrevkp
 	}
 	return nil
+}
+
+func buildPlanetNodeFromConfig() ([]*node.ZtWorldPlanetNode, error) {
+	res := []*node.ZtWorldPlanetNode{}
+	for _, v := range mConf.RootNodes {
+		n1 := &node.ZtWorldPlanetNode{}
+		n1ep := make([]*node.ZtNodeInetAddr, 0)
+		n1id := &node.ZtWorldPlanetNodeIdentity{}
+		err := n1id.FromString(v.IdentityStr, false)
+		if err != nil {
+			return nil, err
+		}
+		for _, v2 := range v.Endpoints {
+			n1addr := &node.ZtNodeInetAddr{}
+			err := n1addr.FromString(v2)
+			if err != nil {
+				return nil, err
+			}
+			n1ep = append(n1ep, n1addr)
+		}
+		n1.Identity = n1id
+		n1.Endpoints = n1ep
+		res = append(res, n1)
+	}
+	return res, nil
 }
