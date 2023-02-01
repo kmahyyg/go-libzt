@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"github.com/kmahyyg/go-libzt/pkg/ztnet/node"
 	"github.com/kmahyyg/go-libzt/pkg/ztnet/ztcrypto"
 	"log"
@@ -19,7 +20,7 @@ var (
 )
 
 var (
-	prekp     []byte
+	prevkp    []byte
 	curkp     []byte
 	mConf     = &MkWorldConfig{}
 	gConfFile = flag.String("c", "mkworld.json", "program config")
@@ -44,11 +45,21 @@ func main() {
 		switch err {
 		case ErrWorldSigningKeyIllegal:
 			log.Println("preflight check error occurred, but still can proceed.")
-			prekp = make([]byte, node.ZT_C25519_PUBLIC_KEY_LEN+node.ZT_C25519_PRIVATE_KEY_LEN)
+			prevkp = make([]byte, node.ZT_C25519_PUBLIC_KEY_LEN+node.ZT_C25519_PRIVATE_KEY_LEN)
 			pub1, priv1 := ztcrypto.GenerateDualPair()
-			copy(prekp[:node.ZT_C25519_PUBLIC_KEY_LEN], pub1[:])
-			copy(prekp[node.ZT_C25519_PUBLIC_KEY_LEN:], priv1[:])
-			copy(curkp, prekp)
+			copy(prevkp[:node.ZT_C25519_PUBLIC_KEY_LEN], pub1[:])
+			copy(prevkp[node.ZT_C25519_PUBLIC_KEY_LEN:], priv1[:])
+			copy(curkp, prevkp)
+			err = os.WriteFile("current.c25519", prevkp, 0640)
+			if err != nil {
+				log.Println("failed to write generate c25519 key pair to disk.")
+				panic(err)
+			}
+			err = os.WriteFile("previous.c25519", curkp, 0640)
+			if err != nil {
+				log.Println("failed to write generate c25519 key pair to disk.")
+				panic(err)
+			}
 			log.Println("new world signing key generated.")
 		case errUseRecommendValue:
 			log.Println("!You've been warned! WARN! WARN! WARN!")
@@ -74,11 +85,52 @@ func main() {
 		PublicKeyMustBeSignedByNextTime: [64]byte{},
 		Nodes:                           nil,
 	}
+	var futurePubK [node.ZT_C25519_PUBLIC_KEY_LEN]byte
+	copy(futurePubK[:], curkp[:node.ZT_C25519_PUBLIC_KEY_LEN])
+
+	log.Println("generating pre-sign message.")
+	toSignZtW, err := ztW.Serialize(true, futurePubK, [node.ZT_C25519_SIGNATURE_LEN]byte{})
+	if err != nil {
+		panic(err)
+	}
+	log.Println("pre-sign world generated and serialized successfully.")
+	var sigPubK [node.ZT_C25519_PUBLIC_KEY_LEN]byte
+	copy(sigPubK[:], prevkp[:node.ZT_C25519_PUBLIC_KEY_LEN])
+	var sigPrivK [node.ZT_C25519_PRIVATE_KEY_LEN]byte
+	copy(sigPrivK[:], prevkp[node.ZT_C25519_PUBLIC_KEY_LEN:])
+	sig4NewWorld, err := ztcrypto.SignMessage(sigPubK, sigPrivK, toSignZtW)
+	if err != nil {
+		panic(err)
+	}
+	log.Println("world has been signed.")
+	finalWorld, err := ztW.Serialize(false, futurePubK, sig4NewWorld)
+	if err != nil {
+		panic(err)
+	}
+	log.Println("new signed world are packed.")
+	err = os.WriteFile(mConf.OutputFile, finalWorld, 0644)
+	if err != nil {
+		panic(err)
+	}
+	log.Println("packed new signed world has been written to file.")
+	log.Println(" ")
+	log.Println("now c language output: ")
+	fmt.Println(" ")
+	fmt.Println("#define ZT_DEFAULT_WORLD_LENGTH ", len(finalWorld))
+	fmt.Printf("static const unsigned char ZT_DEFAULT_WORLD[ZT_DEFAULT_WORLD_LENGTH] = {")
+	for i, v := range finalWorld {
+		if i > 0 {
+			fmt.Printf(",")
+		}
+		fmt.Printf("0x%02x", v)
+	}
+	fmt.Printf("};")
+	fmt.Println(" ")
 }
 
 type MkWorldConfig struct {
 	SigningKeyFiles []string      `json:"signing"`
-	OutputFile      []string      `json:"output"`
+	OutputFile      string        `json:"output"`
 	RootNodes       []MkWorldNode `json:"rootNodes"`
 	PlanetID        uint64        `json:"plID"`
 	PlanetBirth     uint64        `json:"plBirth"`
@@ -126,14 +178,14 @@ func Preflight() error {
 		nErr = errUseRecommendValue
 	}
 	var err1, err2 error
-	prekp, err1 = os.ReadFile(mConf.SigningKeyFiles[0])
+	prevkp, err1 = os.ReadFile(mConf.SigningKeyFiles[0])
 	curkp, err2 = os.ReadFile(mConf.SigningKeyFiles[1])
 	if err1 != nil || err2 != nil {
 		log.Println("read world signing key failed: ", err1, err2)
 		return ErrWorldSigningKeyIllegal
 	}
 	preqLen := node.ZT_C25519_PRIVATE_KEY_LEN + node.ZT_C25519_PUBLIC_KEY_LEN
-	if len(prekp) != preqLen || len(curkp) != preqLen {
+	if len(prevkp) != preqLen || len(curkp) != preqLen {
 		log.Println("world signing key does not satisfy required length.")
 		return ErrWorldSigningKeyIllegal
 	}

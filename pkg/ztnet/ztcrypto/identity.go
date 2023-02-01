@@ -62,16 +62,48 @@ func GenerateDualPair() (pub [64]byte, priv [64]byte) {
 	// First 32 bytes of pub and priv are the keys for ECDH key
 	// agreement. This generates the public portion from the private.
 	copy(pub[0:32], k1pub[:])
-	copy(pub[32:64], k0pub[0:32])
+	copy(priv[0:32], k1priv[:])
 	// Second 32 bytes of pub and priv are the keys for ed25519
 	// signing and verification.
-	copy(priv[0:32], k1priv[:])
+	copy(pub[32:64], k0pub[0:32])
 	copy(priv[32:64], k0priv[0:32])
 	// same as node/C25519.cpp
 	return
 }
 
-func SignMessage(pub [64]byte, priv [64]byte, msg []byte) ([]byte, error) {
+func SignMessage(pub [64]byte, priv [64]byte, msg []byte) ([96]byte, error) {
+	var sigBuf = make([]byte, 96)
+	var finalSig = [96]byte{}
 	// Zerotier Official: we sign the first 32 bytes of SHA-512(msg)
+	h := sha512.New()
+	h.Write(msg)
+	s512 := h.Sum(nil)
+	copy(sigBuf[64:], s512[:32])
+	//
+	// in fact, it's ed25519 sign.
+	//
+	/**
+	 * This takes the SHA-512 of msg[] and then signs the first 32 bytes of this
+	 * digest, returning it and the 64-byte ed25519 signature in signature[].
+	 * This results in a signature that verifies both the signer's authenticity
+	 * and the integrity of the message.
+	 *
+	 * This is based on the original ed25519 code from NaCl and the SUPERCOP
+	 * cipher benchmark suite, but with the modification that it always
+	 * produces a signature of fixed 96-byte length based on the hash of an
+	 * arbitrary-length message.
+	 *
+	 */
+	//
+	// Signature = (R,S,Sha512-Of-First32-Msg)
+	//
+	goPrivK := make([]byte, 64)
+	copy(goPrivK[:32], priv[32:])
+	copy(goPrivK[32:], pub[32:])
 
+	sigData := ed25519.Sign(goPrivK, msg)
+	copy(sigBuf[:64], sigData)
+	// finalize and return
+	copy(finalSig[:], sigBuf)
+	return finalSig, nil
 }
