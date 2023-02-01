@@ -56,7 +56,7 @@ func (ztn *ZtNormalNode) FromString(data string, hasPrivateKey bool) (err error)
 		return err
 	}
 	copy(ztn.ZtNodeAddress[:], tmpAddr)
-	tmpPubk, err := hex.DecodeString(tmpDt[1])
+	tmpPubk, err := hex.DecodeString(tmpDt[2])
 	if err != nil {
 		return err
 	}
