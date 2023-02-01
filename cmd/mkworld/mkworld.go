@@ -213,7 +213,7 @@ func PreFlightSigningKeyCheck() error {
 	tPrevkp, err1 := os.ReadFile(mConf.SigningKeyFiles[0])
 	tCurkp, err2 := os.ReadFile(mConf.SigningKeyFiles[1])
 	if err1 != nil || err2 != nil {
-		log.Println("read world signing key failed: ", err1, err2)
+		log.Println("read world signing key failed: ", err1, " , ", err2)
 		return ErrWorldSigningKeyIllegal
 	}
 	preqLen := node.ZT_C25519_PRIVATE_KEY_LEN + node.ZT_C25519_PUBLIC_KEY_LEN
