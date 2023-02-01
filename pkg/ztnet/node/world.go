@@ -103,7 +103,7 @@ func (ztniaddr *ZtNodeInetAddr) Serialize() ([]byte, error) {
 		buf = append(buf, ztniaddr.IP.To4()...)
 		// in case we have port, append port. (reserved, but not used)
 		// port -> ntoh conversion, net-byteorder is always big-endian
-		buf = binary.LittleEndian.AppendUint16(buf, ztniaddr.Port)
+		buf = binary.BigEndian.AppendUint16(buf, ztniaddr.Port)
 		return buf, nil
 	case syscall.AF_INET6:
 		buf = append(buf, (uint8)(6))
@@ -111,7 +111,7 @@ func (ztniaddr *ZtNodeInetAddr) Serialize() ([]byte, error) {
 		buf = append(buf, ztniaddr.IP.To16()...)
 		// in case we have port, append port. (reserved, but not used)
 		// port -> ntoh conversion, net-byteorder is always big-endian
-		buf = binary.LittleEndian.AppendUint16(buf, ztniaddr.Port)
+		buf = binary.BigEndian.AppendUint16(buf, ztniaddr.Port)
 		return buf, nil
 	default:
 		buf = []byte{0}
