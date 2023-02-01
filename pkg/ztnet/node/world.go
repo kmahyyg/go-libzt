@@ -105,7 +105,7 @@ func (ztniaddr *ZtNodeInetAddr) Serialize() ([]byte, error) {
 		buf = append(buf, ztniaddr.IP.To4()...)
 		// in case we have port, append port. (reserved, but not used)
 		// port -> ntoh conversion, net-byteorder is always big-endian
-		binary.LittleEndian.AppendUint16(buf, ztniaddr.Port)
+		buf = binary.LittleEndian.AppendUint16(buf, ztniaddr.Port)
 		return buf, nil
 	case syscall.AF_INET6:
 		buf = append(buf, (uint8)(6))
@@ -113,7 +113,7 @@ func (ztniaddr *ZtNodeInetAddr) Serialize() ([]byte, error) {
 		buf = append(buf, ztniaddr.IP.To16()...)
 		// in case we have port, append port. (reserved, but not used)
 		// port -> ntoh conversion, net-byteorder is always big-endian
-		binary.LittleEndian.AppendUint16(buf, ztniaddr.Port)
+		buf = binary.LittleEndian.AppendUint16(buf, ztniaddr.Port)
 		return buf, nil
 	default:
 		buf = []byte{0}
@@ -171,11 +171,11 @@ func (ztw ZtWorld) Serialize(forSign bool, c25519pub [ZT_C25519_PUBLIC_KEY_LEN]b
 	var buf = make([]byte, 0)
 	// by default, forSign = false
 	if forSign {
-		binary.BigEndian.AppendUint64(buf, 0x7f7f7f7f7f7f7f7f)
+		buf = binary.BigEndian.AppendUint64(buf, 0x7f7f7f7f7f7f7f7f)
 	}
 	buf = append(buf, ztw.Type)
-	binary.BigEndian.AppendUint64(buf, ztw.ID)
-	binary.BigEndian.AppendUint64(buf, ztw.Timestamp)
+	buf = binary.BigEndian.AppendUint64(buf, ztw.ID)
+	buf = binary.BigEndian.AppendUint64(buf, ztw.Timestamp)
 	buf = append(buf, c25519pub[:]...)
 	// make sure sig is not 0
 	if !forSign && !bytes.Equal(c25519sig[:4], []byte{0, 0, 0, 0}) {
@@ -194,10 +194,10 @@ func (ztw ZtWorld) Serialize(forSign bool, c25519pub [ZT_C25519_PUBLIC_KEY_LEN]b
 	}
 	if ztw.Type == ZT_WORLD_TYPE_MOON {
 		// official comments: no attached dictionary (for future use)
-		binary.BigEndian.AppendUint16(buf, 0)
+		buf = binary.BigEndian.AppendUint16(buf, 0)
 	}
 	if forSign {
-		binary.BigEndian.AppendUint64(buf, 0xf7f7f7f7f7f7f7f7)
+		buf = binary.BigEndian.AppendUint64(buf, 0xf7f7f7f7f7f7f7f7)
 	}
 	if len(buf) > ZT_WORLD_MAX_SERIALIZED_LENGTH {
 		return nil, ErrSerializedDataTooLarge
