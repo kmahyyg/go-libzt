@@ -105,6 +105,8 @@ func main() {
 	if err2 != nil {
 		panic(err2)
 	}
+
+	// prepare for signing
 	var futurePubK = [node.ZT_C25519_PUBLIC_KEY_LEN]byte{}
 	copy(futurePubK[:], curkp[:node.ZT_C25519_PUBLIC_KEY_LEN])
 	ztW.PublicKeyMustBeSignedByNextTime = futurePubK
@@ -114,15 +116,19 @@ func main() {
 		panic(err)
 	}
 	log.Println("pre-sign world generated and serialized successfully.")
+
 	var sigPubK [node.ZT_C25519_PUBLIC_KEY_LEN]byte
-	copy(sigPubK[:], prevkp[:node.ZT_C25519_PUBLIC_KEY_LEN])
 	var sigPrivK [node.ZT_C25519_PRIVATE_KEY_LEN]byte
+	copy(sigPubK[:], prevkp[:node.ZT_C25519_PUBLIC_KEY_LEN])
 	copy(sigPrivK[:], prevkp[node.ZT_C25519_PUBLIC_KEY_LEN:])
-	sig4NewWorld, err := ztcrypto.SignMessage(sigPubK, sigPrivK, toSignZtW)
+
+	sig4NewWorld, err := ztcrypto.SignMessage(sigPrivK, toSignZtW)
 	if err != nil {
 		panic(err)
 	}
 	log.Println("world has been signed.")
+
+	// pack and serialize
 	finalWorld, err := ztW.Serialize(false, sig4NewWorld)
 	if err != nil {
 		panic(err)
@@ -134,6 +140,8 @@ func main() {
 	}
 	log.Println("packed new signed world has been written to file.")
 	log.Println(" ")
+
+	// if params are recommended, save
 	if alreadyMod {
 		mDt, err := json.Marshal(mConf)
 		if err != nil {
@@ -147,6 +155,8 @@ func main() {
 		}
 	}
 	log.Println(" ")
+
+	// get c output
 	log.Println("now c language output: ")
 	fmt.Println(" ")
 	fmt.Println("#define ZT_DEFAULT_WORLD_LENGTH ", len(finalWorld))
@@ -214,6 +224,7 @@ func Preflight() error {
 
 func PreFlightSigningKeyCheck() error {
 	var err1, err2 error
+	// "signing": ["previous.c25519", "current.c25519"]
 	tPrevkp, err1 := os.ReadFile(mConf.SigningKeyFiles[0])
 	tCurkp, err2 := os.ReadFile(mConf.SigningKeyFiles[1])
 	if err1 != nil || err2 != nil {
