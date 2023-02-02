@@ -79,7 +79,6 @@ func SignMessage(priv [64]byte, msg []byte) ([96]byte, error) {
 	h.Write(msg)
 	s512 := h.Sum(nil)
 	copy(sigBuf[64:], s512[:32])
-
 	//
 	// in fact, it's ed25519 sign.
 	//
