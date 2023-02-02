@@ -122,7 +122,7 @@ func main() {
 	copy(sigPubK[:], prevkp[:node.ZT_C25519_PUBLIC_KEY_LEN])
 	copy(sigPrivK[:], prevkp[node.ZT_C25519_PUBLIC_KEY_LEN:])
 
-	sig4NewWorld, err := ztcrypto.SignMessage(sigPrivK, toSignZtW)
+	sig4NewWorld, err := ztcrypto.SignMessage(sigPubK, sigPrivK, toSignZtW)
 	if err != nil {
 		panic(err)
 	}

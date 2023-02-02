@@ -71,7 +71,7 @@ func GenerateDualPair() (pub [64]byte, priv [64]byte) {
 	return
 }
 
-func SignMessage(priv [64]byte, msg []byte) ([96]byte, error) {
+func SignMessage(pub [64]byte, priv [64]byte, msg []byte) ([96]byte, error) {
 	var sigBuf = make([]byte, 96)
 	var finalSig = [96]byte{}
 	// Zerotier Official: we sign the first 32 bytes of SHA-512(msg)
@@ -97,7 +97,10 @@ func SignMessage(priv [64]byte, msg []byte) ([96]byte, error) {
 	//
 	// Signature = (R,S,Sha512-Of-First32-Msg)
 	//
-	sigData := ed25519.Sign(priv[:], s512[:32])
+	goPrivK := make([]byte, 64)
+	copy(goPrivK[:32], priv[32:64])
+	copy(goPrivK[32:], pub[32:64])
+	sigData := ed25519.Sign(goPrivK, s512[:32])
 	copy(sigBuf[:64], sigData)
 	// finalize and return
 	copy(finalSig[:], sigBuf)
